@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="br.com.ithappens.pdvredis.mapper.tesouraria.TesourariaMovimentoMapper">
+    <!--<cache type="br.com.ithappens.pdvredis.mapper.tesouraria.RedisCache"/>-->
+    <resultMap id="FechamentoLoja" type="br.com.ithappens.pdvredis.model.tesouraria.FechamentoLoja" >
+        <result column="te01a_id"             property="id"/>
+        <result column="te01a_id_filial"      property="filialId"/>
+        <result column="te01a_data_movimento" property="dataMovimento"/>
+        <result column="te01a_status"         property="statusId"/>
+    </resultMap>
+
+    <select id="recuperarFechamentosParaFinalizacaoAutomatica" resultMap="FechamentoLoja">
+        select
+        te01a_id,
+        te01a_id_filial,
+        te01a_data_movimento,
+        te01a_status
+        from tesouraria.te01a_fechamento_loja
+        where te01a_status = 0 and
+        te01a_data_movimento &lt; cast(now() as date)
+        and not exists (
+            select 1 from banco_cupom.bc02b_fechamento_movimento
+            inner join banco_cupom.bc01a_cupom_capa on bc01a_id_filial = bc02b_filial_id
+            and bc01a_pdv = bc02b_pdv and bc01a_data_movimento = bc02b_data_movimento
+            and bc02b_movimento_operador = bc01a_operador_movimento
+            where bc02b_filial_id = te01a_id_filial and
+            bc02b_data_movimento = te01a_data_movimento and
+            bc02b_status = 0
+            limit 1
+        ) limit 3
+    </select>
+
+    <update id="atualizarFechamentoLojaParaFechado" flushCache="true">
+        update tesouraria.te01a_fechamento_loja set te01a_status = #{status}
+        where te01a_id = #{fechamentoLoja.id}
+    </update>
+</mapper>
